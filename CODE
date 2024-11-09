@@ -1,0 +1,88 @@
+#include <Arduino.h>
+
+// Піни для підключення до драйвера ULN2003
+const int IN1 = 23;
+const int IN2 = 22;
+const int IN3 = 21;
+const int IN4 = 19;
+
+// Піни для кнопок
+const int button10cm = 15;
+const int button20_5cm = 13;
+
+// Кількість кроків для кожного з варіантів
+const int steps10cm = 1304;  // Кроки для 10 см (оновлено вал 5см)
+const int steps20_5cm = 2612; // Кроки для 20.5 см (оновлено вал 5см)
+
+// Порядок кроків для двигуна (8 кроків)
+const int stepSequence[8][4] = {
+    {1, 0, 0, 0},
+    {1, 1, 0, 0},
+    {0, 1, 0, 0},
+    {0, 1, 1, 0},
+    {0, 0, 1, 0},
+    {0, 0, 1, 1},
+    {0, 0, 0, 1},
+    {1, 0, 0, 1}
+};
+
+// Змінні для зберігання стану кнопок
+bool lastButton10cmState = HIGH;
+bool lastButton20_5cmState = HIGH;
+
+// Час для debounce
+unsigned long lastDebounceTime10cm = 0; // для кнопки 10 см
+unsigned long lastDebounceTime20_5cm = 0; // для кнопки 20.5 см
+unsigned long debounceDelay = 50; // 50 мс затримка для фільтрації кнопок
+
+void setup() {
+    Serial.begin(9600);
+
+    // Налаштування піна для драйвера
+    pinMode(IN1, OUTPUT);
+    pinMode(IN2, OUTPUT);
+    pinMode(IN3, OUTPUT);
+    pinMode(IN4, OUTPUT);
+
+    // Налаштування кнопок
+    pinMode(button10cm , INPUT_PULLUP);
+    pinMode(button20_5cm, INPUT_PULLUP);
+}
+
+void loop() {
+    // Читання стану кнопок
+    bool reading10cm = digitalRead(button10cm);
+    bool reading20_5cm = digitalRead(button20_5cm);
+
+    // Перевірка кнопки для 10 см (з debounce)
+    if (reading10cm == LOW && lastButton10cmState == HIGH && (millis() - lastDebounceTime10cm) > debounceDelay) {
+        moveStepper(steps10cm);
+        lastDebounceTime10cm = millis();  // Оновлюємо час останнього натискання
+        Serial.print("Button 10 cm state: ");
+        Serial.println("Pressed");
+    }
+
+    // Перевірка кнопки для 20.5 см (з debounce)
+    if (reading20_5cm == LOW && lastButton20_5cmState == HIGH && (millis() - lastDebounceTime20_5cm) > debounceDelay) {
+        moveStepper(steps20_5cm);
+        lastDebounceTime20_5cm = millis();  // Оновлюємо час останнього натискання
+        Serial.print("Button 20.5 cm state: ");
+        Serial.println("Pressed");
+    }
+
+    // Оновлюємо останній стан кнопок
+    lastButton10cmState = reading10cm;
+    lastButton20_5cmState = reading20_5cm;
+}
+
+void moveStepper(int steps) {
+    for (int i = 0; i < steps; i++) {
+        for (int j = 0; j < 8; j++) {
+            digitalWrite(IN1, stepSequence[j][0]);
+            digitalWrite(IN2, stepSequence[j][1]);
+            digitalWrite(IN3, stepSequence[j][2]);
+            digitalWrite(IN4, stepSequence[j][3]);
+            delayMicroseconds(800); // Зменшена затримка для збільшення швидкості
+        }
+    }
+}
